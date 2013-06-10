@@ -28,7 +28,7 @@ ver='jun.10.13'
 #apr 18 2013 updated rsync functions so that conf files under httpdocs are synced in an additional sync task. added some more color. added -q to ssh.
 #apr 19 2013 finalized coloration
 #may 03 2013 better plesk 8 compatibility
-#june 10 2013 silenced rsync outputs
+#june 10 2013 silenced rsync outputs, fixed dbsync.sh to use password
 #=========================================================
 #initial setup and global variables
 #==================================
@@ -370,9 +370,9 @@ if [ -d $TMPFOLDER/dbdumps ]; then
  mkdir $TMPFOLDER/prefinalsyncdbs
  for each in `ls *.sql|cut -d. -f1`; do
   echo "dumping $each" |tee -a $LOG
-  (mysqldump $each > $TMPFOLDER/prefinalsyncdbs/$each.sql) 2>>$LOG
+  (mysqldump -u admin -p$(cat /etc/psa/.psa.shadow) $each > $TMPFOLDER/prefinalsyncdbs/$each.sql) 2>>$LOG
   echo " importing $each" | tee -a $LOG
-  (mysql $each < $TMPFOLDER/dbdumps/$each.sql)  2>>$LOG
+  (mysql -u admin -p$(cat /etc/psa/.psa.shadow) $each < $TMPFOLDER/dbdumps/$each.sql)  2>>$LOG
  done
  echo "Finished, hit a key to see the log."
  read
