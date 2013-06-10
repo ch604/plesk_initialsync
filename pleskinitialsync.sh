@@ -2,7 +2,7 @@
 #Plesk migration script
 #by awalilko@liquidweb.com
 #many thanks to abrevick@lw for his cpanel initialsync script, off of which this was based.
-ver='may.03.13'
+ver='jun.10.13'
 #=========================================================
 #####changelog
 #sept 07 2012 alpha version tested, roughly working
@@ -28,6 +28,7 @@ ver='may.03.13'
 #apr 18 2013 updated rsync functions so that conf files under httpdocs are synced in an additional sync task. added some more color. added -q to ssh.
 #apr 19 2013 finalized coloration
 #may 03 2013 better plesk 8 compatibility
+#june 10 2013 silenced rsync outputs
 #=========================================================
 #initial setup and global variables
 #==================================
@@ -390,8 +391,9 @@ sleep 2
 rsynchomedirs() { #sync the docroots of all users, exluding the conf folder. the conf folder holds ip-specific data, which we do not want to migrate.
 for each in `mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;"`; do
  if [ `ssh -q $target -p$port "ls /var/www/vhosts/ | grep ^$each$"` ]; then
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update
+  echo -e "${purple}Syncing data for ${white}$each${purple}...${noclr}"
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf > /dev/null 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update > /dev/null 2>&1
  else
   echo -e "${red}$each did not restore remotely${noclr}"
   echo -e $each >> $didnotrestore
@@ -401,14 +403,15 @@ done
 
 finalrsynchomedirs() { #as with rsynchomedirs(), but without remote home check.
 for each in `mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;"`; do
- rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --update --exclude=conf
- rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update
+ echo -e "${purple}Syncing data for ${white}$each${purple}...${noclr}"
+ rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --update --exclude=conf > /dev/null 2>&1
+ rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update > /dev/null 2>&1
 done
 }
 
 rsyncemail() { #rsync the whole mail folder
 echo -e "${white}Syncing email...${noclr}"
-rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/ root@$target:/var/qmail/mailnames/ --update
+rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/ root@$target:/var/qmail/mailnames/ --update > /dev/null 2>&1
 }
 
 #==============
@@ -776,8 +779,8 @@ echo -e "${purple}Syncing docroots for $client...${noclr}"
 for each in $clientdomains; do
  echo -e $each
  if [[ -d /var/www/vhosts/$each ]]; then
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf > /dev/null 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update > /dev/null 2>&1
  fi
 done
 }
@@ -787,7 +790,7 @@ echo -e "${purple}Syncing mail for $client...${noclr}"
 for each in $clientdomains; do
  echo -e $each
  if [[ -d /var/qmail/mailnames/$each ]]; then
-  rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/$each root@$target:/var/qmail/mailnames/
+  rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/$each root@$target:/var/qmail/mailnames/ > /dev/null 2>&1
  fi
 done
 }
@@ -885,8 +888,8 @@ echo -e "${purple}Syncing docroots for $domain...${noclr}"
 for each in $domainowned; do
  echo $each
  if [[ -d /var/www/vhosts/$each ]]; then
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf > /dev/null 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update > /dev/null 2>&1
  fi
 done
 }
@@ -896,7 +899,7 @@ echo -e "${purple}Syncing mail for $domain...${noclr}"
 for each in $domainowned; do
  echo -e $each
  if [[ -d /var/qmail/mailnames/$each ]]; then
-  rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/$each root@$target:/var/qmail/mailnames/
+  rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/$each root@$target:/var/qmail/mailnames/ > /dev/null 2>&1
  fi
 done
 }
