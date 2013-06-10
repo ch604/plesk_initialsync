@@ -6,6 +6,10 @@ hostsfile=/var/www/vhosts/default/htdocs/hostsfile.txt
 althostsfile=/var/www/vhosts/default/htdocs/hosts.txt
 ip=`/usr/local/psa/bin/ipmanage --ip_list | grep " S " | head -n1 | cut -d\: -f2 | cut -d\/ -f1`
 
+#lets get started
+echo "Let's make some hosts file entries!"
+echo "♪┏(・o･)┛♪┗ (･o･) ┓♪┏(・o･)┛♪┗ (･o･) ┓♪"
+
 #backup hosts file if it exists
 if [ -s $hostsfile ]; then
  mv $hostsfile{,.bak}
@@ -22,9 +26,12 @@ for domain in `mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'select n
 done
 echo "Done!"
 
-#create one line per ip
+#create one line per ip for ipv4, then ipv6
 echo "Generating alternate file..."
 for domip in `cat $hostsfile | cut -d\  -f1 | sort | uniq | grep -v [a-zA-Z]`; do
+  echo $domip `cat $hostsfile | grep $domip | cut -d\  -f2-3 | tr '\n' ' '` >> $althostsfile;
+done
+for domip in `cat $hostsfile | cut -d\  -f1 | sort | uniq | grep :`; do
   echo $domip `cat $hostsfile | grep $domip | cut -d\  -f2-3 | tr '\n' ' '` >> $althostsfile;
 done
 echo "Done!"
@@ -37,6 +44,16 @@ if [ -s /etc/httpd/modsecurity.d ]; then
   echo "ModSec corrected! All Set!"
 else
   echo "ModSec not found! All set!"
+fi
+
+#determine if there is a default domain and place the files there
+echo "Ensuring that the correct folder is used for the default IP..."
+domainfolder=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select d.name from domains AS d join IP_Addresses as ipa where ipa.ip_address='$ip' and d.id=ipa.default_domain_id"`
+if [[ $domainfolder ]]; then
+  cp $hostsfile /var/www/vhosts/$domainfolder/httpdocs/
+  cp $althostsfile /var/www/vhosts/$domainfolder/httpdocs/
+else
+  echo "Default folder should work!"
 fi
 
 #determine if there is a hostname account and copy the files to that docroot
