@@ -52,3 +52,5 @@ apr 19 2013 finalized coloration
 may 03 2013 better plesk 8 compatibility
 
 june 10 2013 silenced rsync outputs, fixed dbsync.sh to use password
+
+june 18 2013 changed rsync output to log instead, and cleaned up temp folder creation.
