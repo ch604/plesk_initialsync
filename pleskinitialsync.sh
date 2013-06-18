@@ -2,7 +2,7 @@
 #Plesk migration script
 #by awalilko@liquidweb.com
 #many thanks to abrevick@lw for his cpanel initialsync script, off of which this was based.
-ver='jun.10.13'
+ver='jun.18.13'
 #=========================================================
 #initial setup and global variables
 #==================================
@@ -10,6 +10,7 @@ ver='jun.10.13'
 test -f /var/didnotrestore.txt && mv /var/didnotrestore.txt{,.`date +%F.%T`.bak}
 didnotrestore=/var/didnotrestore.txt
 tmpfolder=/var/migrationtemp
+logfile=$tmpfolder/migrationlog.txt
 
 yesNo() { #generic yesNo function 
 #repeat if yes or no option not valid
@@ -195,6 +196,7 @@ dnscheck
 rsyncupgrade
 lowerttls
 getip
+foldersetup
 licensecheck
 ipcheck
 phpupgrade
@@ -366,8 +368,8 @@ rsynchomedirs() { #sync the docroots of all users, exluding the conf folder. the
 for each in `mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;"`; do
  if [ `ssh -q $target -p$port "ls /var/www/vhosts/ | grep ^$each$"` ]; then
   echo -e "${purple}Syncing data for ${white}$each${purple}...${noclr}"
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf > /dev/null 2>&1
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update > /dev/null 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf >> $logfile 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update >> $logfile 2>&1
  else
   echo -e "${red}$each did not restore remotely${noclr}"
   echo -e $each >> $didnotrestore
@@ -378,14 +380,14 @@ done
 finalrsynchomedirs() { #as with rsynchomedirs(), but without remote home check.
 for each in `mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;"`; do
  echo -e "${purple}Syncing data for ${white}$each${purple}...${noclr}"
- rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --update --exclude=conf > /dev/null 2>&1
- rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update > /dev/null 2>&1
+ rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --update --exclude=conf >> $logfile 2>&1
+ rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update >> $logfile 2>&1
 done
 }
 
 rsyncemail() { #rsync the whole mail folder
 echo -e "${white}Syncing email...${noclr}"
-rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/ root@$target:/var/qmail/mailnames/ --update > /dev/null 2>&1
+rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/ root@$target:/var/qmail/mailnames/ --update >> $logfile 2>&1
 }
 
 #==============
@@ -567,6 +569,13 @@ else
 fi
 }
 
+foldersetup() { #set up tmpfolder on both servers
+test -d $tmpfolder && mv $tmpfolder{,.`date +%F.%T`.bak}
+mkdir -p $tmpfolder/dbdumps
+ssh -q -p$port root@$target "test -d $tmpfolder && mv $tmpfolder{,.`date +%F.%T`.bak}"
+ssh -q -p$port root@$target "mkdir $tmpfolder"
+}
+
 #===================
 #end presync scripts
 #===================
@@ -702,18 +711,13 @@ fi
 }
 
 syncclients() { #make a backup per client and restore on the target machine
-test -d $tmpfolder && mv $tmpfolder{,.`date +%F.%T`.bak}
-mkdir $tmpfolder
-mkdir $tmpfolder/dbdumps
-ssh -q -p$port root@$target "test -d $tmpfolder && mv $tmpfolder{,.`date +%F.%T`.bak}"
-ssh -q -p$port root@$target "mkdir $tmpfolder"
 for client in `cat $clientlistfile`; do
  clientdomains=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'SELECT c.login, d.name FROM clients AS c JOIN domains AS d ON d.cl_id = c.id;' | grep ^$client\s* | awk '{print $2}'`
  echo -e "${purple}Backing up ${white}$client${purple}...${noclr}"
  /usr/local/psa/bin/pleskbackup clients-name $client -c --skip-logs --output-file=$tmpfolder/backup.$client.tar
  if [[ -f $tmpfolder/backup.$client.tar ]]; then
   echo -e "${purple}Transferring $client and making mapfile...${noclr}"
-  rsync -avHPe "ssh -q -p$port" $tmpfolder/backup.$client.tar root@$target:$tmpfolder/
+  rsync -aHPe "ssh -q -p$port" $tmpfolder/backup.$client.tar root@$target:$tmpfolder/
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map"
   echo -e "${purple}Executing restore of $client (this can take a while, please be patient...)${noclr}"
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map"
@@ -753,8 +757,8 @@ echo -e "${purple}Syncing docroots for $client...${noclr}"
 for each in $clientdomains; do
  echo -e $each
  if [[ -d /var/www/vhosts/$each ]]; then
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf > /dev/null 2>&1
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update > /dev/null 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf >> $logfile 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update >> $logfile 2>&1
  fi
 done
 }
@@ -764,7 +768,7 @@ echo -e "${purple}Syncing mail for $client...${noclr}"
 for each in $clientdomains; do
  echo -e $each
  if [[ -d /var/qmail/mailnames/$each ]]; then
-  rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/$each root@$target:/var/qmail/mailnames/ > /dev/null 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/$each root@$target:/var/qmail/mailnames/ >> $logfile 2>&1
  fi
 done
 }
@@ -807,17 +811,12 @@ fi
 }
 
 syncdomains() { #make a backup per subscription and restore on the target machine
-test -d $tmpfolder && mv $tmpfolder{,.`date +%F.%T`.bak}
-mkdir $tmpfolder
-mkdir $tmpfolder/dbdumps
-ssh -q -p$port root@$target "test -d $tmpfolder && mv $tmpfolder{,.`date +%F.%T`.bak}"
-ssh -q -p$port root@$target "mkdir $tmpfolder"
 for domain in `cat $domlistfile`; do
  echo -e "${purple}Backing up ${white}$domain${purple}...${noclr}"
  /usr/local/psa/bin/pleskbackup domains-name $domain -c --skip-logs --output-file=$tmpfolder/backup.$domain.tar
  if [[ -f $tmpfolder/backup.$domain.tar ]]; then
   echo -e "${purple}Transferring $domain and making mapfile...${noclr}"
-  rsync -avHPe "ssh -q -p$port" $tmpfolder/backup.$domain.tar root@$target:$tmpfolder/
+  rsync -aHPe "ssh -q -p$port" $tmpfolder/backup.$domain.tar root@$target:$tmpfolder/
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map"
   echo -e "${purple}Executing restore of $domain (this can take a while, please be patient...)${noclr}"
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map"
@@ -862,8 +861,8 @@ echo -e "${purple}Syncing docroots for $domain...${noclr}"
 for each in $domainowned; do
  echo $each
  if [[ -d /var/www/vhosts/$each ]]; then
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf > /dev/null 2>&1
-  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update > /dev/null 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each root@$target:/var/www/vhosts/ --exclude=conf >> $logfile 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/www/vhosts/$each/httpdocs root@$target:/var/www/vhosts/$each/ --update >> $logfile 2>&1
  fi
 done
 }
@@ -873,7 +872,7 @@ echo -e "${purple}Syncing mail for $domain...${noclr}"
 for each in $domainowned; do
  echo -e $each
  if [[ -d /var/qmail/mailnames/$each ]]; then
-  rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/$each root@$target:/var/qmail/mailnames/ > /dev/null 2>&1
+  rsync -avHPe "ssh -q -p$port" /var/qmail/mailnames/$each root@$target:/var/qmail/mailnames/ >> $logfile 2>&1
  fi
 done
 }
