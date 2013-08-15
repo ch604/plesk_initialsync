@@ -648,10 +648,10 @@ targetmysqlpass=`ssh -q $target "cat /etc/psa/.psa.shadow"`
 #ssh -q $target -p$port "echo '[client]
 #user=admin
 #pass=$targetmysqlpass' >> /root/.my.cnf" # this will get passwordless mysql logins temporarily, only way to check the database on the remote server.
-restoreprogress &
-MYSELF=$!
+#restoreprogress &
+#MYSELF=$!
 ssh -q $target -p$port "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.tar -level server -map $tmpfolder/mapfile.txt -verbose"
-kill $MYSELF &> /dev/null
+#kill $MYSELF &> /dev/null
 echo -e "${green}
 Restore completed! ${purple}Testing restored domain list...${noclr}"
 targetnumdomains=`ssh -q $target -p$port "mysql -u admin -p$targetmysqlpass -Ns psa -e 'select name from domains;'" | wc -l`
