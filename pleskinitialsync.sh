@@ -594,7 +594,7 @@ done
 if [[ $catpreexisting -eq 1 ]]; then
  echo -e "${red}Coincidental domains found between source and target!${noclr}"
  cat /root/preexisting.txt
- if yesno "If you continue with the migration, data in these domains will be overwritten! Do you want to continue?"; then
+ if yesNo "If you continue with the migration, data in these domains will be overwritten! Do you want to continue?"; then
   echo -e Continuing...
  else
   echo -e Exiting...
