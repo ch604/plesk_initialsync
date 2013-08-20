@@ -8,7 +8,7 @@ ip=`/usr/local/psa/bin/ipmanage --ip_list | grep " S " | head -n1 | cut -d\: -f2
 
 #lets get started
 echo "Let's make some hosts file entries!"
-echo "♪┏(・o･)┛♪┗ (･o･) ┓♪┏(・o･)┛♪┗ (･o･) ┓♪"
+echo "♪┏(・o･)┛♪┗ (･o・) ┓♪┏(・o･)┛♪┗ (･o・) ┓♪"
 
 #backup hosts file if it exists
 if [ -s $hostsfile ]; then
@@ -39,8 +39,8 @@ echo "Done!"
 #correct server to accept requests by IP
 echo "Correcting for ModSec..."
 if [ -s /etc/httpd/modsecurity.d ]; then
-  grep 960017 /etc/httpd/modsecurity.d/* -Rl | xargs sed -i '/960017/s/^/\#/g';
-  service httpd restart;
+  grep 960017 /etc/httpd/modsecurity.d/* -Rl | xargs sed -i '/960017/s/^/\#/g'
+  service httpd restart
   echo "ModSec corrected! All Set!"
 else
   echo "ModSec not found! All set!"
