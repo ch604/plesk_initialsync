@@ -1,3 +1,5 @@
+aug 20 2013 corrected domain and client-level syncs
+
 june 18 2013 changed rsync output to log instead, and cleaned up temp folder creation.
 
 june 10 2013 silenced rsync outputs, fixed dbsync.sh to use password
