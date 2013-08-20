@@ -720,7 +720,7 @@ for client in `cat $clientlistfile`; do
   rsync -aHPe "ssh -q -p$port" $tmpfolder/backup.$client.tar root@$target:$tmpfolder/
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map"
   echo -e "${purple}Executing restore of $client (this can take a while, please be patient...)${noclr}"
-  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map"
+  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -level clients"
   restoredtest=`echo $clientdomains | awk '{print $1}'`
   restored=`ssh -q -p$port root@$target "\ls -A /var/www/vhosts/ | grep ^$restoredtest$"` #check to see if domain folder exists to test restore
   if [ $restored ]; then
@@ -819,7 +819,7 @@ for domain in `cat $domlistfile`; do
   rsync -aHPe "ssh -q -p$port" $tmpfolder/backup.$domain.tar root@$target:$tmpfolder/
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map"
   echo -e "${purple}Executing restore of $domain (this can take a while, please be patient...)${noclr}"
-  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map"
+  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map -level domains"
   restored=`ssh -q -p$port root@$target "\ls -A /var/www/vhosts/ | grep ^$domain$"` #check to see if domain folder exists to test restore
   if [ $restored ]; then
    echo -e "${green}$domain restored ok. ${purple}Syncing data...${noclr}"
