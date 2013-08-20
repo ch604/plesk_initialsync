@@ -747,7 +747,7 @@ for db in $domdatabases; do
  echo -e "Dumping $db for $client..."
  mysqldump -u admin -p$(cat /etc/psa/.psa.shadow) $db > $tmpfolder/dbdumps/$db.sql
 done
-echo -e "${green}Databases for $client complete.${noclr}"
+echo -e "${green}Databases for $client complete.${purple} Copying to target server...${noclr}"
 rsync -avHPe "ssh -q -p$port" $tmpfolder/dbdumps root@$target:$tmpfolder/ --update
 echo $domdatabases >> $tmpfolder/databaselist.txt
 }
@@ -823,8 +823,8 @@ for domain in `cat $domlistfile`; do
   restored=`ssh -q -p$port root@$target "\ls -A /var/www/vhosts/ | grep ^$domain$"` #check to see if domain folder exists to test restore
   if [ $restored ]; then
    echo -e "${green}$domain restored ok. ${purple}Syncing data...${noclr}"
-   syncdomdatabases
    determineowned
+   syncdomdatabases
    syncdomdocroot
    syncdommail
   else
@@ -839,17 +839,18 @@ done
 dbsyncscript
 }
 
-syncdomdatabases() { # option A, lots of imports
+syncdomdatabases() { #determine databases for a domain and copy them across, appending a list file for later mass restoration.
 echo -e "${purple}Determining databases for sync...${noclr}"
-domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name FROM data_bases, domains WHERE data_bases.dom_id = domains.id ORDER BY domain_name;" | grep $domain | awk '{print $2}' | sort | uniq`
-for db in $domdatabases; do
- echo -e "Dumping $db for $domain..."
- mysqldump -u admin -p$(cat /etc/psa/.psa.shadow) $db > $tmpfolder/dbdumps/$db.sql
+for owned in $domainowned; do
+ domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name FROM data_bases, domains WHERE data_bases.dom_id = domains.id ORDER BY domain_name;" | grep $owned | awk '{print $2}' | sort | uniq`
+ for db in $domdatabases; do
+  echo -e "Dumping $db for $owned..."
+  mysqldump -u admin -p$(cat /etc/psa/.psa.shadow) $db > $tmpfolder/dbdumps/$db.sql
+ done
+ echo -e "${green}Databases for $owned complete.${purple} Copying to target server...${noclr}"
+ rsync -avHPe "ssh -q -p$port" $tmpfolder/dbdumps root@$target:$tmpfolder/
+ echo $domdatabases >> $tmpfolder/databaselist.txt
 done
-echo -e "${green}Databases for $domain complete.${noclr}"
-rsync -avHPe "ssh -q -p$port" $tmpfolder/dbdumps root@$target:$tmpfolder/
-echo $domdatabases >> $tmpfolder/databaselist.txt
-###write dbrestore on target in screen which will close automatically
 }
 
 determineowned() { #determine which domains are owned by a subscription based on the backup file, depends on $domain being set
