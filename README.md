@@ -7,4 +7,4 @@ Requirements
 ------------
 Source server requires RHEL or equivalent with Plesk 8 or greater (may work with earlier versions), and mysql for database storage.
 
-Target server requires RHEL or equivalent with Plesk 10 or greater (shouldn't be migrating to anything earlier than this anyway) and mysql for database storage. Will also require passworded root SSH login and screen. The system will also access specific internal servers which are available only to the writer of this script in order to download specific install methods such as ffmpeg or imagemagick :D
+Target server requires RHEL or equivalent with Plesk 10 or greater (shouldn't be migrating to anything earlier than this anyway) and mysql for database storage. Will also require passworded root SSH login and screen. The system will also access specific internal servers in order to download specific RPMs for rsync. These can be bypassed or replaced with external versions if you wish.
