@@ -1,3 +1,5 @@
+aug 21 2013 added reminders() for user friendliness
+
 aug 20 2013 corrected domain and client-level pleskrestore calls, updated syncdomdatabases to get parked domains too
 
 june 18 2013 changed rsync output to log instead, and cleaned up temp folder creation.
