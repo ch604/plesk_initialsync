@@ -150,6 +150,7 @@ restore
 dnrcheck
 hostsfile
 removekey
+reminders
 }
 
 clientlistsync() {
@@ -165,6 +166,7 @@ syncclients
 dnrcheck
 hostsfile
 removekey
+reminders
 else
 echo -e "${red}Check yoself before you wreck yoself. Quitting.${noclr}"
 exit 0
@@ -184,6 +186,7 @@ syncdomains
 dnrcheck
 hostsfile
 removekey
+reminders
 else
 echo -e "${red}Check yoself before you wreck yoself. Quitting.${noclr}"
 exit 0
@@ -211,6 +214,7 @@ databasefinalsync
 rsynchomedirs
 rsyncemail
 removekey
+reminders
 }
 
 clientlistupdatesync() {
@@ -958,6 +962,10 @@ echo -e "Removing ssh key from remote server..."
   cp -rp ~/.ssh/authorized_keys{.syncbak,};
  fi"
 fi
+}
+
+reminders() { #Dont forget to do these things when finished. will add more reminders per individual service checks in the future
+echo "${red}Don't forget to check database imports on the target server in screen!${noclr}"
 }
 
 # This is where the actual script is run. 
