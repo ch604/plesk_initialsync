@@ -52,8 +52,9 @@ domainfolder=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select d.
 if [[ $domainfolder ]]; then
   cp $hostsfile /var/www/vhosts/$domainfolder/httpdocs/
   cp $althostsfile /var/www/vhosts/$domainfolder/httpdocs/
+  echo "Copied files to default domain $domainfolder!"
 else
-  echo "Default folder should work!"
+  echo "Server default folder should work!"
 fi
 
 #determine if there is a hostname account and copy the files to that docroot
