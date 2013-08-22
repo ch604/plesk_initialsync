@@ -984,6 +984,8 @@ fi
 
 reminders() { #Dont forget to do these things when finished. will add more reminders per individual service checks in the future
 echo "${red}Don't forget to check database imports on the target server in screen!${noclr}"
+echo "${red}Remember to clean up any temporary folders at /var/migrationtemp if they are unneeded to save space!${noclr}"
+sleep 3
 }
 
 # This is where the actual script is run. 
