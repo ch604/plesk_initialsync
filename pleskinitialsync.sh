@@ -404,10 +404,12 @@ dnscheck() { #check the current DNS settings based on the defined domain list
 echo -e "${purple}Checking Current dns...${noclr}"
 if [ -f /root/dns.txt ]; then
  echo -e "Found /root/dns.txt"
- sleep 3
+ sleep 2
  cat /root/dns.txt | sort -n +3 -2 | more
 else
- yum -y install bind-utils
+ if [[ `which dig` ]]; then
+  yum -y install bind-utils
+ fi
  domainlist=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'select name from domains'`
  for each in $domainlist; do echo $each\ `dig @8.8.8.8 NS +short $each |sed 's/\.$//g'`\ `dig @8.8.8.8 +short $each` ; done | grep -v \ \ | column -t > /root/dns.txt
  cat /root/dns.txt | sort -n +3 -2 | more
