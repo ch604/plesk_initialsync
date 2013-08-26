@@ -848,7 +848,7 @@ dbsyncscript
 syncdomdatabases() { #determine databases for a domain and copy them across, appending a list file for later mass restoration.
 echo -e "${purple}Determining databases for sync...${noclr}"
 for owned in $domainowned; do
- domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name FROM data_bases, domains WHERE data_bases.dom_id = domains.id ORDER BY domain_name;" | grep $owned | awk '{print $2}' | sort | uniq`
+ domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name FROM data_bases, domains WHERE data_bases.dom_id = domains.id ORDER BY domain_name;" | grep ^$owned | awk '{print $2}' | sort | uniq`
  for db in $domdatabases; do
   echo -e "Dumping $db for $owned..."
   mysqldump -u admin -p$(cat /etc/psa/.psa.shadow) $db > $tmpfolder/dbdumps/$db.sql
