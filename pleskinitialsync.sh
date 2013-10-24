@@ -720,7 +720,7 @@ fi
 
 syncclients() { #make a backup per client and restore on the target machine
 for client in `cat $clientlistfile`; do
- clientdomains=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'SELECT c.login, d.name FROM clients AS c JOIN domains AS d ON d.cl_id = c.id;' | grep ^$client\s* | awk '{print $2}'`
+ clientdomains=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'SELECT c.login, d.name FROM clients AS c JOIN domains AS d ON d.cl_id = c.id;' | grep ^$client\s* | awk '{print $2}' | sort`
  echo -e "${purple}Backing up ${white}$client${purple}...${noclr}"
  /usr/local/psa/bin/pleskbackup clients-name $client -c --skip-logs --output-file=$tmpfolder/backup.$client.tar
  if [[ -f $tmpfolder/backup.$client.tar ]]; then
@@ -750,7 +750,7 @@ dbsyncscript
 
 syncclidatabases() { # option A, lots of imports
 echo -e "${purple}Determining databases for sync...${noclr}"
-domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name, clients.login FROM data_bases, clients, domains WHERE data_bases.dom_id = domains.id AND domains.cl_id = clients.id ORDER BY domain_name;" | grep \s+$client$ | awk '{print $2}' | sort | uniq`
+domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name, clients.login FROM data_bases, clients, domains WHERE data_bases.dom_id = domains.id AND domains.cl_id = clients.id ORDER BY domain_name;" | grep \s+$client$ | awk '{print $2}' | sort -u`
 for db in $domdatabases; do
  echo -e "Dumping $db for $client..."
  mysqldump -u admin -p$(cat /etc/psa/.psa.shadow) $db > $tmpfolder/dbdumps/$db.sql
@@ -850,7 +850,7 @@ dbsyncscript
 syncdomdatabases() { #determine databases for a domain and copy them across, appending a list file for later mass restoration.
 echo -e "${purple}Determining databases for sync...${noclr}"
 for owned in $domainowned; do
- domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name FROM data_bases, domains WHERE data_bases.dom_id = domains.id ORDER BY domain_name;" | grep ^$owned | awk '{print $2}' | sort | uniq`
+ domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name FROM data_bases, domains WHERE data_bases.dom_id = domains.id ORDER BY domain_name;" | grep ^$owned | awk '{print $2}' | sort -u`
  for db in $domdatabases; do
   echo -e "Dumping $db for $owned..."
   mysqldump -u admin -p$(cat /etc/psa/.psa.shadow) $db > $tmpfolder/dbdumps/$db.sql
@@ -862,7 +862,7 @@ done
 }
 
 determineowned() { #determine which domains are owned by a subscription based on the backup file, depends on $domain being set
-domainowned=`tar -Oxf $tmpfolder/backup.$domain.tar *.xml | grep www\= | tr [:space:] '\n' | grep name | cut -d\" -f2 | sort | uniq`
+domainowned=`tar -Oxf $tmpfolder/backup.$domain.tar *.xml | grep www\= | tr [:space:] '\n' | grep name | cut -d\" -f2 | sort -u`
 }
 
 syncdomdocroot() { #sync the docroots tied to a particular subscription
@@ -924,17 +924,17 @@ if [ -s $althostsfile ]; then
 fi
 #create one line for each domain and subdomain
 echo "Generating entries..."
-for domain in `mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'select name from domains' | sort | uniq`; do
+for domain in `mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'select name from domains' | sort -u`; do
   domip=`/usr/local/psa/bin/domain --info $domain | grep address | cut -d\: -f2 | sed -e 's/^[ \t]*//'`;
   echo $domip  $domain www.$domain >> $hostsfile;
 done
 echo "Done!"
 #create one line per ip for ipv4, then ipv6
 echo "Generating alternate file..."
-for domip in `cat $hostsfile | cut -d\ -f1 | sort | uniq | grep -v [a-zA-Z]`; do
+for domip in `cat $hostsfile | cut -d\ -f1 | sort -u | grep -v [a-zA-Z]`; do
 echo $domip `cat $hostsfile | grep $domip | cut -d\ -f2-3 | tr '\n' ' '` >> $althostsfile;
 done
-for domip in `cat $hostsfile | cut -d\ -f1 | sort | uniq | grep :`; do
+for domip in `cat $hostsfile | cut -d\ -f1 | sort -u | grep :`; do
 echo $domip `cat $hostsfile | grep $domip | cut -d\ -f2-3 | tr '\n' ' '` >> $althostsfile;
 done
 echo "Done!"
