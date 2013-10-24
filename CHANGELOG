@@ -1,4 +1,4 @@
-oct 24 2013 added case for RHEL in rsyncupgrade(), added -ignore-sign to all calls of pleskrestore for better plesk11 compatibility
+oct 24 2013 added case for RHEL in rsyncupgrade(), added -ignore-sign to all calls of pleskrestore for better plesk11 compatibility. move didnotbackup out of the way before proceeding if it exists.
 
 aug 23 2013 don't install bind if you dont have to
 
