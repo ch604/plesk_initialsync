@@ -20,7 +20,7 @@ fi
 
 #create one line for each domain and subdomain
 echo "Generating entries..."
-for domain in `mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'select name from domains' | sort | uniq`; do
+for domain in `mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'select name from domains' | sort -u`; do
   domip=`/usr/local/psa/bin/domain --info $domain | grep address | cut -d\: -f2 | sed -e 's/^[ \t]*//'`;
   echo $domip  $domain www.$domain >> $hostsfile;
 done
@@ -28,10 +28,10 @@ echo "Done!"
 
 #create one line per ip for ipv4, then ipv6
 echo "Generating alternate file..."
-for domip in `cat $hostsfile | cut -d\  -f1 | sort | uniq | grep -v [a-zA-Z]`; do
+for domip in `cat $hostsfile | cut -d\  -f1 | sort -u | grep -v [a-zA-Z]`; do
   echo $domip `cat $hostsfile | grep $domip | cut -d\  -f2-3 | tr '\n' ' '` >> $althostsfile;
 done
-for domip in `cat $hostsfile | cut -d\  -f1 | sort | uniq | grep :`; do
+for domip in `cat $hostsfile | cut -d\  -f1 | sort -u | grep :`; do
   echo $domip `cat $hostsfile | grep $domip | cut -d\  -f2-3 | tr '\n' ' '` >> $althostsfile;
 done
 echo "Done!"
