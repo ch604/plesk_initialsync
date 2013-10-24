@@ -427,6 +427,8 @@ if [[ $rsyncmajor -lt 3 ]]; then
  LOCALARCH=`uname -i`
  if [[ $LOCALCENT -eq 6 ]]; then
   rpm -Uvh http://migration.sysres.liquidweb.com//rsync/rsync-3.0.9-1.el6.rfx.$LOCALARCH.rpm
+ elif [[ $LOCALCENT -eq Enterprise ]]; then
+  echo -e "${red}RHEL detected! Skipping upgrade of rsync...${noclr}"
  else
   rpm -Uvh http://migration.sysres.liquidweb.com//rsync/rsync-3.0.0-1.el$LOCALCENT.rf.$LOCALARCH.rpm
  fi
@@ -631,7 +633,7 @@ rsync -avHPe "ssh -q -p$port" $tmpfolder/backup.tar $target:$tmpfolder/
 ipmaptool () { #this will set the ip mapping to $target server ips
 echo -e "${purple}Setting IP mapping on target server...${noclr}"
 ssh -q $target -p$port "test -e $tmpfolder/mapfile.txt && mv $tmpfolder/mapfile.txt{,.`date +%F.%T`.bak}"
-ssh -q $target -p$port "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.tar -map $tmpfolder/mapfile.txt"
+ssh -q $target -p$port "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.tar -map $tmpfolder/mapfile.txt -ignore-sign"
 echo -e "${white}Target machine mapped addresses as follows:${noclr}"
 ssh -q $target -p$port "cat $tmpfolder/mapfile.txt" | grep '\->'
 if yesNo "Does this look alright to you?"; then
@@ -656,7 +658,7 @@ targetmysqlpass=`ssh -q $target "cat /etc/psa/.psa.shadow"`
 #pass=$targetmysqlpass' >> /root/.my.cnf" # this will get passwordless mysql logins temporarily, only way to check the database on the remote server.
 #restoreprogress &
 #MYSELF=$!
-ssh -q $target -p$port "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.tar -level server -map $tmpfolder/mapfile.txt -verbose"
+ssh -q $target -p$port "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.tar -level server -map $tmpfolder/mapfile.txt -verbose -ignore-sign"
 #kill $MYSELF &> /dev/null
 echo -e "${green}
 Restore completed! ${purple}Testing restored domain list...${noclr}"
@@ -724,9 +726,9 @@ for client in `cat $clientlistfile`; do
  if [[ -f $tmpfolder/backup.$client.tar ]]; then
   echo -e "${purple}Transferring $client and making mapfile...${noclr}"
   rsync -aHPe "ssh -q -p$port" $tmpfolder/backup.$client.tar root@$target:$tmpfolder/
-  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map"
+  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -ignore-sign"
   echo -e "${purple}Executing restore of $client (this can take a while, please be patient...)${noclr}"
-  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -level clients"
+  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -level clients -ignore-sign"
   restoredtest=`echo $clientdomains | awk '{print $1}'`
   restored=`ssh -q -p$port root@$target "\ls -A /var/www/vhosts/ | grep ^$restoredtest$"` #check to see if domain folder exists to test restore
   if [ $restored ]; then
@@ -823,9 +825,9 @@ for domain in `cat $domlistfile`; do
  if [[ -f $tmpfolder/backup.$domain.tar ]]; then
   echo -e "${purple}Transferring $domain and making mapfile...${noclr}"
   rsync -aHPe "ssh -q -p$port" $tmpfolder/backup.$domain.tar root@$target:$tmpfolder/
-  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map"
+  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map -ignore-sign"
   echo -e "${purple}Executing restore of $domain (this can take a while, please be patient...)${noclr}"
-  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map -level domains"
+  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map -level domains -ignore-sign"
   restored=`ssh -q -p$port root@$target "\ls -A /var/www/vhosts/ | grep ^$domain$"` #check to see if domain folder exists to test restore
   if [ $restored ]; then
    echo -e "${green}$domain restored ok. ${purple}Syncing data...${noclr}"
