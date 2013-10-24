@@ -162,6 +162,7 @@ if yesNo "This look good to you?"; then
 clientcheck
 presync
 didnotbackup=/var/didnotbackup.txt
+if [[ -f $didnotbackup ]]; then mv $didnotbackup{,.`date +%F.%T`.bak}; fi
 syncclients
 dnrcheck
 hostsfile
@@ -182,6 +183,7 @@ if yesNo "This look good to you?"; then
 subcheck
 presync
 didnotbackup=/var/didnotbackup.txt
+if [[ -f $didnotbackup ]]; then mv $didnotbackup{,.`date +%F.%T`.bak}; fi
 syncdomains
 dnrcheck
 hostsfile
