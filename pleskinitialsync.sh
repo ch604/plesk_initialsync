@@ -340,14 +340,12 @@ fi
 dbsyncscript () { #create a script to restore the databases on the target server, then run it there in a screen
 cat > /var/dbsync.sh <<'EOF'
 #!/bin/bash
-#ran on remote server to sync dbs.
 TMPFOLDER=/var/migrationtemp
 LOG=$TMPFOLDER/dbdumps/dbdumps.log
 if [ -d $TMPFOLDER/dbdumps ]; then
  cd $TMPFOLDER/dbdumps
  touch $LOG
  echo "Dump dated `date`" > $LOG
- #if the prefinalsyncdb directory exists, rename it
  test -d $TMPFOLDER/prefinalsyncdbs && mv $TMPFOLDER/prefinalsyncdbs{,.`date +%F.%R`.bak}
  mkdir $TMPFOLDER/prefinalsyncdbs
  for each in `ls *.sql|cut -d. -f1`; do
@@ -356,12 +354,10 @@ if [ -d $TMPFOLDER/dbdumps ]; then
   echo " importing $each" | tee -a $LOG
   (mysql -u admin -p$(cat /etc/psa/.psa.shadow) $each < $TMPFOLDER/dbdumps/$each.sql)  2>>$LOG
  done
- echo "Finished, hit a key to see the log."
- read
+ echo "Finished, hit a key to see the log."; read
  less $LOG
 else
- echo "$TMPFOLDER/dbdumps not found"
- read
+ echo "$TMPFOLDER/dbdumps not found"; read
 fi
 EOF
 rsync -aHPe "ssh -q -p$port" /var/dbsync.sh $target:/var/
