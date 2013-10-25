@@ -752,7 +752,7 @@ dbsyncscript
 
 syncclidatabases() { # option A, lots of imports
 echo -e "${purple}Determining databases for sync...${noclr}"
-domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name, clients.login FROM data_bases, clients, domains WHERE data_bases.dom_id = domains.id AND domains.cl_id = clients.id ORDER BY domain_name;" | grep \s+$client$ | awk '{print $2}' | sort -u`
+domdatabases=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "SELECT domains.name AS domain_name, data_bases.name AS database_name, clients.login FROM data_bases, clients, domains WHERE data_bases.dom_id = domains.id AND domains.cl_id = clients.id ORDER BY domain_name;" | grep [[:space:]]$client$ | awk '{print $2}' | sort -u`
 for db in $domdatabases; do
  echo -e "Dumping $db for $client..."
  mysqldump -u admin -p$(cat /etc/psa/.psa.shadow) $db > $tmpfolder/dbdumps/$db.sql
