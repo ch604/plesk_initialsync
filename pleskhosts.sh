@@ -22,7 +22,9 @@ fi
 echo "Generating entries..."
 for domain in `mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'select name from domains' | sort -u`; do
   domip=`/usr/local/psa/bin/domain --info $domain | grep address | cut -d\: -f2 | sed -e 's/^[ \t]*//'`;
-  echo $domip  $domain www.$domain >> $hostsfile;
+  if [[ $domip ]]; then
+   echo $domip  $domain www.$domain >> $hostsfile;
+  fi
 done
 echo "Done!"
 
