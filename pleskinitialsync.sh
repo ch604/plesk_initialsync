@@ -157,13 +157,14 @@ clientlistsync() {
 clientlistfile=/var/userlist.txt
 echo -e "${purple}Syncing from $clientlistfile:${noclr}
 "
-cat $clientlistfile
+cat $clientlistfile | grep -v ^admin$
 if yesNo "This look good to you?"; then
 clientcheck
 presync
 didnotbackup=/var/didnotbackup.txt
 if [[ -f $didnotbackup ]]; then mv $didnotbackup{,.`date +%F.%T`.bak}; fi
 syncclients
+dbsyncscript
 dnrcheck
 hostsfile
 removekey
@@ -185,6 +186,7 @@ presync
 didnotbackup=/var/didnotbackup.txt
 if [[ -f $didnotbackup ]]; then mv $didnotbackup{,.`date +%F.%T`.bak}; fi
 syncdomains
+dbsyncscript
 dnrcheck
 hostsfile
 removekey
@@ -714,10 +716,20 @@ ${red}Please double check these lines and remove them if necessary.${noclr}"
 else
  echo -e "${green}Looks good. Moving on.${noclr}"
 fi
+if yesNo "Would you like to sync domains owned by the admin user, which would not otherwise be migrated at a client level?"; then
+ syncadmin
+fi
+}
+
+syncadmin() { #sync domains owned by the admin user, which cannot be backed up at a client level
+domlistfile=/var/admindomains.txt
+mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'SELECT c.login, d.name FROM clients AS c JOIN domains AS d ON d.cl_id = c.id;' | grep ^admin\s* | awk '{print $2}' | sort > $domlistfile
+subcheck
+syncdomains
 }
 
 syncclients() { #make a backup per client and restore on the target machine
-for client in `cat $clientlistfile`; do
+for client in `cat $clientlistfile | grep -v ^admin$`; do
  clientdomains=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'SELECT c.login, d.name FROM clients AS c JOIN domains AS d ON d.cl_id = c.id;' | grep ^$client\s* | awk '{print $2}' | sort`
  echo -e "${purple}Backing up ${white}$client${purple}...${noclr}"
  /usr/local/psa/bin/pleskbackup clients-name $client -c --skip-logs --output-file=$tmpfolder/backup.$client.tar
@@ -743,7 +755,6 @@ for client in `cat $clientlistfile`; do
   echo $client >> $didnotbackup
  fi
 done
-dbsyncscript
 }
 
 syncclidatabases() { # option A, lots of imports
@@ -842,7 +853,6 @@ for domain in `cat $domlistfile`; do
   echo $domain >> $didnotbackup
  fi
 done
-dbsyncscript
 }
 
 syncdomdatabases() { #determine databases for a domain and copy them across, appending a list file for later mass restoration.
