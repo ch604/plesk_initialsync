@@ -1,3 +1,5 @@
+oct 29 2013 now checks for restoration of domains in psa database instead of in /var/www/vhosts (affects domainexistcheck, restore, restoreprogress, syncclients, and syncdomains functions)
+
 oct 28 2013 detection for domains without IPs in pleskhosts.sh
 
 oct 24 2013 added case for RHEL in rsyncupgrade(), added -ignore-sign to all calls of pleskrestore for better plesk11 compatibility. move didnotbackup out of the way before proceeding if it exists.
