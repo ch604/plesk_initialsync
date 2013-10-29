@@ -11,6 +11,7 @@ test -f /var/didnotrestore.txt && mv /var/didnotrestore.txt{,.`date +%F.%T`.bak}
 didnotrestore=/var/didnotrestore.txt
 tmpfolder=/var/migrationtemp
 logfile=$tmpfolder/migrationlog.txt
+didnotbackup=/var/didnotbackup.txt
 
 yesNo() { #generic yesNo function 
 #repeat if yes or no option not valid
@@ -82,7 +83,7 @@ The presync functions encompass checking for common third-party applications, do
 
 The full sync works by creating a configuration-only backup of the entire server and restoring this on the target. Obviously, this works best with an empty target server. Then, individual domains are synced at a folder level to the target server, the mail folders are copied, and databases are dumped and reimported. The final sync for this task redumps all the databases and updates the folder syncs, then changes the DNS on the old server to match the new server.
 
-The client list sync takes a list of clients and makes client-level configuration backups. These are restored one at a time on the target server, and then databases are dumped and copied, and folders are synced. At the end of the client list loop, the databases are imported on the target server.
+The client list sync takes a list of clients and makes client-level configuration backups. These are restored one at a time on the target server, and then databases are dumped and copied, and folders are synced. At the end of the client list loop, the databases are imported on the target server. Separate from this, you are asked if you would like to migrate domains that are not owned by a client (admin domains). These are synced one at a time using the domain-list sync method.
 
 The domain list sync works as the client list sync does, but at a subscription-level backup. 
 
@@ -142,7 +143,8 @@ exit
 initialsync() {
 echo -e "${purple}Starting full initial sync.${noclr}"
 presync
-domainexistcheck
+domainexistcheck `mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;"`
+checkcatpreexisting
 createbackup
 syncbackup
 ipmaptool
@@ -161,7 +163,6 @@ cat $clientlistfile | grep -v ^admin$
 if yesNo "This look good to you?"; then
 clientcheck
 presync
-didnotbackup=/var/didnotbackup.txt
 if [[ -f $didnotbackup ]]; then mv $didnotbackup{,.`date +%F.%T`.bak}; fi
 syncclients
 dbsyncscript
@@ -183,8 +184,9 @@ cat $domlistfile
 if yesNo "This look good to you?"; then
 subcheck
 presync
-didnotbackup=/var/didnotbackup.txt
 if [[ -f $didnotbackup ]]; then mv $didnotbackup{,.`date +%F.%T`.bak}; fi
+domainexistcheck `cat $domlistfile`
+checkcatpreexisting
 syncdomains
 dbsyncscript
 dnrcheck
@@ -590,15 +592,18 @@ ssh -q -p$port root@$target "mkdir $tmpfolder"
 #start regular sync
 #==================
 
-domainexistcheck() { #make sure that domains that exist on the source do not already have a folder on the target
+domainexistcheck() { #make sure that domains that exist on the source do not already exist on target. takes input.
 echo -e "${purple}Checking for coincidental domains on target server...${noclr}"
 catpreexisting=0
-for each in `mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;"`; do
+for each in $*; do
  if [ `ssh -q $target -p$port 'mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select name from domains;"' | grep ^$each$` ]; then
   echo $each >> /root/preexisting.txt
   catpreexisting=1
  fi
 done
+}
+
+checkcatpreexisting(){
 if [[ $catpreexisting -eq 1 ]]; then
  echo -e "${red}Coincidental domains found between source and target!${noclr}"
  cat /root/preexisting.txt
@@ -731,28 +736,37 @@ syncdomains
 syncclients() { #make a backup per client and restore on the target machine
 for client in `cat $clientlistfile | grep -v ^admin$`; do
  clientdomains=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'SELECT c.login, d.name FROM clients AS c JOIN domains AS d ON d.cl_id = c.id;' | grep ^$client\s* | awk '{print $2}' | sort`
- echo -e "${purple}Backing up ${white}$client${purple}...${noclr}"
- /usr/local/psa/bin/pleskbackup clients-name $client -c --skip-logs --output-file=$tmpfolder/backup.$client.tar
- if [[ -f $tmpfolder/backup.$client.tar ]]; then
-  echo -e "${purple}Transferring $client and making mapfile...${noclr}"
-  rsync -aHPe "ssh -q -p$port" $tmpfolder/backup.$client.tar root@$target:$tmpfolder/
-  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -ignore-sign"
-  echo -e "${purple}Executing restore of $client (this can take a while, please be patient...)${noclr}"
-  ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -level clients -ignore-sign"
-  restoredtest=`echo $clientdomains | awk '{print $1}'`
-  restored=`ssh -q -p$port root@$target 'mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select name from domains"' | grep ^$restoredtest$` #check to see if a domain exists in target psa db to test restore
-  if [ $restored ]; then
-   echo -e "${green}$client restored ok. ${purple}Syncing data...${noclr}"
-   syncclidatabases
-   syncclidocroot
-   syncclimail
-  else
-   echo -e "${red}$client did not seem to restore correctly!${noclr}"
-   echo $client >> $didnotrestore
-  fi
- else
-  echo -e "${red}Backup of $client failed. Does this client really exist?${noclr}"
+ echo -e "${purple}Checking for coincidental domains owned by ${white}$client${purple}...${noclr}"
+ domainexistcheck $clientdomains
+ if [[ $catpreexisting -eq 1 ]]; then
+  echo -e "${red}Conflicting domains found on target server!${noclr}"
+  cat /root/preexisting.txt
+  echo -e "${red}Skipping copy of ${white}$client${red}!! Check $didnotbackup after migration is complete${noclr}"
   echo $client >> $didnotbackup
+ else
+  echo -e "${purple}Backing up ${white}$client${purple}...${noclr}"
+  /usr/local/psa/bin/pleskbackup clients-name $client -c --skip-logs --output-file=$tmpfolder/backup.$client.tar
+  if [[ -f $tmpfolder/backup.$client.tar ]]; then
+   echo -e "${purple}Transferring $client and making mapfile...${noclr}"
+   rsync -aHPe "ssh -q -p$port" $tmpfolder/backup.$client.tar root@$target:$tmpfolder/
+   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -ignore-sign"
+   echo -e "${purple}Executing restore of $client (this can take a while, please be patient...)${noclr}"
+   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -level clients -ignore-sign"
+   restoredtest=`echo $clientdomains | awk '{print $1}'`
+   restored=`ssh -q -p$port root@$target 'mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select name from domains"' | grep ^$restoredtest$` #check to see if a domain exists in target psa db to test restore
+   if [ $restored ]; then
+    echo -e "${green}$client restored ok. ${purple}Syncing data...${noclr}"
+    syncclidatabases
+    syncclidocroot
+    syncclimail
+   else
+    echo -e "${red}$client did not seem to restore correctly!${noclr}"
+    echo $client >> $didnotrestore
+   fi
+  else
+   echo -e "${red}Backup of $client failed. Does this client really exist?${noclr}"
+   echo $client >> $didnotbackup
+  fi
  fi
 done
 }
