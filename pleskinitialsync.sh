@@ -592,7 +592,7 @@ domainexistcheck() { #make sure that domains that exist on the source do not alr
 echo -e "${purple}Checking for coincidental domains on target server...${noclr}"
 catpreexisting=0
 for each in `mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;"`; do
- if [ `ssh -q $target -p$port "ls /var/www/vhosts/ | grep ^$each$"` ]; then
+ if [ `ssh -q $target -p$port 'mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select name from domains;"' | grep ^$each$` ]; then
   echo $each >> /root/preexisting.txt
   catpreexisting=1
  fi
@@ -649,7 +649,7 @@ restore() { #The actual restoration function. will restore the configuration bac
 echo -e "${purple}Restoring configuration file...
 This part may not be completely verbose...${noclr}"
 numdomains=`mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;" | wc -l`
-targetmysqlpass=`ssh -q $target "cat /etc/psa/.psa.shadow"`
+#targetmysqlpass=`ssh -q $target "cat /etc/psa/.psa.shadow"`
 #ssh -q $target -p$port "test -f /root/.my.cnf && cp -a /root/.my.cnf{,.migrationbak}"
 #ssh -q $target -p$port "echo '[client]
 #user=admin
@@ -660,7 +660,7 @@ ssh -q $target -p$port "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/bac
 #kill $MYSELF &> /dev/null
 echo -e "${green}
 Restore completed! ${purple}Testing restored domain list...${noclr}"
-targetnumdomains=`ssh -q $target -p$port "mysql -u admin -p$targetmysqlpass -Ns psa -e 'select name from domains;'" | wc -l`
+targetnumdomains=`ssh -q $target -p$port 'mysql -u admin -p$(cat /etc/psa/.psa.shadow) -Ns psa -e "select name from domains;"' | wc -l`
 #ssh -q $target -p$port "test -f /root/.my.cnf.migrationbak && mv -f /root/.my.cnf{.migrationbak,}"
 echo -e "
 ${white}There are $numdomains domains on the source server and $targetnumdomains domains on the target server.${noclr}"
@@ -678,7 +678,7 @@ ${white}There are $numdomains domains on the source server and $targetnumdomains
 
 restoreprogress() { #show the progress of the restore in terms of number of domains restored
 while true; do
- numrestored=`ssh -q $target -p$port "mysql psa -u admin -p$targetmysqlpass -Ns -e 'select name from domains' | wc -l"`
+ numrestored=`ssh -q $target -p$port 'mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select name from domains" | wc -l'`
  echo -ne "${white}Restored ${noclr}$numrestored/$numdomains...\r"
  sleep 6
 done
@@ -690,7 +690,7 @@ done
 #start client sync
 #=================
 
-clientcheck() { #Check the $clientlistfile against subscriptions on the source server
+clientcheck() { #Check the $clientlistfile against real subscriptions on the source server
 clientlist=`mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e 'SELECT c.login, d.name FROM clients AS c JOIN domains AS d ON d.cl_id = c.id;'`
 echo -e "${purple}Checking $clientlistfile for bad entries...${noclr}"
 rm -f /var/clientcheckfail.txt
@@ -728,7 +728,7 @@ for client in `cat $clientlistfile`; do
   echo -e "${purple}Executing restore of $client (this can take a while, please be patient...)${noclr}"
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$client.tar -map $tmpfolder/backup.$client.map -level clients -ignore-sign"
   restoredtest=`echo $clientdomains | awk '{print $1}'`
-  restored=`ssh -q -p$port root@$target "\ls -A /var/www/vhosts/ | grep ^$restoredtest$"` #check to see if domain folder exists to test restore
+  restored=`ssh -q -p$port root@$target 'mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select name from domains"' | grep ^$restoredtest$` #check to see if a domain exists in target psa db to test restore
   if [ $restored ]; then
    echo -e "${green}$client restored ok. ${purple}Syncing data...${noclr}"
    syncclidatabases
@@ -785,7 +785,7 @@ done
 #start domain list sync
 #======================
 
-subcheck() { #Check the $domlistfile against subscriptions on the source server
+subcheck() { #Check the $domlistfile against real subscriptions on the source server
 if [[ `cat /usr/local/psa/version | awk '{print $1}' | cut -c1` -eq 8 ]]; then
  echo -e "Plesk 8 detected! I hope you selected the right domains 'cause I can't check!"
  sleep 5
@@ -803,7 +803,7 @@ else
  "
   cat /var/subcheckfail.txt
   echo -e "
- ${red}Please double check these lines and remove them if necessary. If the source server is less than plesk 11, this might not work at all...${noclr}"
+ ${red}Please double check these lines and remove them if necessary. If the source server is less than plesk 11, this test might not work at all...${noclr}"
   if yesNo "Override bad entries check? Script will fail for invalid domains."; then
    echo -e "Moving on."
   else
@@ -826,7 +826,7 @@ for domain in `cat $domlistfile`; do
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --create-map $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map -ignore-sign"
   echo -e "${purple}Executing restore of $domain (this can take a while, please be patient...)${noclr}"
   ssh -q -p$port root@$target "/usr/local/psa/bin/pleskrestore --restore $tmpfolder/backup.$domain.tar -map $tmpfolder/backup.$domain.map -level domains -ignore-sign"
-  restored=`ssh -q -p$port root@$target "\ls -A /var/www/vhosts/ | grep ^$domain$"` #check to see if domain folder exists to test restore
+  restored=`ssh -q -p$port root@$target 'mysql psa -u admin -p$(cat /etc/psa/.psa.shadow) -Ns -e "select name from domains"' | grep ^$domain$` #check to see if domain exists in psa db to test restore
   if [ $restored ]; then
    echo -e "${green}$domain restored ok. ${purple}Syncing data...${noclr}"
    determineowned
