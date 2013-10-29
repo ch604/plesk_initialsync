@@ -1,3 +1,5 @@
+oct 29 2013 implemented domainexistcheck() for all levels of initial sync.
+
 oct 29 2013 added syncadmin() function option to sync unowned domains when doing a client-level sync. the client-level sync will now ignore 'admin' user in client list, as it doesnt back up anyway.
 
 oct 29 2013 now checks for restoration of domains in psa database instead of in /var/www/vhosts (affects domainexistcheck, restore, restoreprogress, syncclients, and syncdomains functions)
