@@ -164,6 +164,9 @@ if yesNo "This look good to you?"; then
 clientcheck
 presync
 if [[ -f $didnotbackup ]]; then mv $didnotbackup{,.`date +%F.%T`.bak}; fi
+if yesNo "Would you like to sync domains owned by the admin user, which would not otherwise be migrated at a client level?"; then
+ syncadmin
+fi
 syncclients
 dbsyncscript
 dnrcheck
@@ -720,9 +723,6 @@ ${red}Please double check these lines and remove them if necessary.${noclr}"
  fi
 else
  echo -e "${green}Looks good. Moving on.${noclr}"
-fi
-if yesNo "Would you like to sync domains owned by the admin user, which would not otherwise be migrated at a client level?"; then
- syncadmin
 fi
 }
 
