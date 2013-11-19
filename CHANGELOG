@@ -1,3 +1,5 @@
+nov 19 2013 corrected adminsync to come at the right time in client level sync
+
 oct 29 2013 implemented domainexistcheck() for all levels of initial sync.
 
 oct 29 2013 added syncadmin() function option to sync unowned domains when doing a client-level sync. the client-level sync will now ignore 'admin' user in client list, as it doesnt back up anyway.
