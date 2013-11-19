@@ -2,7 +2,7 @@
 #Plesk migration script
 #by awalilko@liquidweb.com
 #many thanks to abrevick@lw for his cpanel initialsync script, off of which this was based.
-ver='oct 29.13'
+ver='nov 19.13'
 #=========================================================
 #initial setup and global variables
 #==================================
